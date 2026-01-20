@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Suivi des actions - Loire-Authion Autrement</title>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+        #header { height: 70px; background: #2c3e50; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 2000; position: relative; }
+        .stats-container { width: 300px; text-align: right; margin-left: 15px; }
+        .progress { height: 10px; background-color: #4a6278; }
+        #map { height: calc(100vh - 70px); width: 100%; background: #e5e5e5; }
+        .legend { position: absolute; bottom: 30px; right: 10px; background: white; padding: 15px; border-radius: 8px; z-index: 1000; }
+        .legend-item { margin-bottom: 8px; display: flex; align-items: center; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; display: inline-block; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; transition: opacity 0.5s ease; }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .geoloc-icon { width: 20px; height: 20px; fill: #333; }
+        .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
+        .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
+
+        /* NOUVEAU : STYLE DE L'ECRAN DE CONNEXION */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #2c3e50; z-index: 100000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <img src="logo.jpg" alt="Logo" style="height: 80px; width: auto; margin-bottom: 20px; border-radius: 50%; object-fit: contain; background: white; padding: 5px;">
+        <h2 class="h4 mb-4">Accès sécurisé</h2>
+        <div class="d-flex flex-column align-items-center gap-2">
+            <input type="password" id="password-input" class="form-control text-center" placeholder="Mot de passe" style="width: 250px;">
+            <button onclick="checkPassword()" class="btn btn-success w-100 fw-bold">Entrer</button>
+            <p id="login-error" class="text-danger mt-2 fw-bold" style="display: none;">Mot de passe incorrect</p>
+        </div>
+        <small class="text-white-50 mt-5">Loire-Authion Autrement</small>
+    </div>
+
+    <div id="header">
+        <div class="d-flex align-items-center">
+            <img src="logo.jpg" alt="Logo" style="height: 50px; width: auto; margin-right: 15px; object-fit: contain;">
+            <div>
+                <h1 class="h6 m-0 fw-bold text-nowrap">Suivi des actions - Loire-Authion Autrement</h1>
+                <small class="text-white-50" style="font-size: 0.7rem;">© Clément LE GRAND. Tous droits réservés</small>
+            </div>
+        </div>
+        <div class="stats-container">
+            <div class="d-flex justify-content-between mb-1" style="font-size: 0.9rem;">
+                <span id="stats-text">Connexion...</span>
+                <span id="stats-percent" class="fw-bold text-success">--%</span>
+            </div>
+            <div class="progress">
+                <div id="progress-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    <div id="source-display" class="source-info">Source: Chargement...</div>
+
+    <div class="legend">
+        <h6 class="fw-bold mb-3 border-bottom pb-2">Légende</h6>
+        <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.1); border: 2px solid blue;"></span><span>Frontières</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>À faire</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Fait</span></div>
+    </div>
+    
+    <div id="loading" class="loading-overlay">
+        <div class="spinner-border text-light mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+        <div id="loading-msg" class="fs-5">Démarrage...</div>
+        <small id="server-status" class="text-warning mt-3" style="font-size: 0.8rem;"></small>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/osmtogeojson@2.2.12/osmtogeojson.js"></script>
+    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // --- MOT DE PASSE (MODIFIEZ LE ICI) ---
+        const MOT_DE_PASSE = "clément";
+
+        // --- GESTION DU MOT DE PASSE ---
+        window.checkPassword = function() {
+            const input = document.getElementById('password-input').value;
+            if (input === MOT_DE_PASSE) {
+                document.getElementById('login-screen').style.display = 'none';
+                localStorage.setItem('map_auth', 'true'); // On s'en souvient
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        };
+
+        // Vérification automatique au démarrage
+        if (localStorage.getItem('map_auth') === 'true') {
+            document.getElementById('login-screen').style.display = 'none';
+        }
+
+        // --- CONFIGURATION FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDV11Ne09SvKOkyti5EfjRM8UYmwlpqhGA",
+            authDomain: "suivi-actions-loire-authion.firebaseapp.com",
+            databaseURL: "https://suivi-actions-loire-authion-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "suivi-actions-loire-authion",
+            storageBucket: "suivi-actions-loire-authion.firebasestorage.app",
+            messagingSenderId: "693650330058",
+            appId: "1:693650330058:web:42f3c6cbbfa0b2366fff33"
+        };
+
+        let db;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            console.log("✅ Firebase connecté.");
+        } catch (e) {
+            console.error("Erreur Firebase:", e);
+        }
+
+        const COLOR_TODO = "#dc3545"; 
+        const COLOR_DONE = "#28a745"; 
+        const OPACITY_TODO = 0.4; 
+        const OPACITY_DONE = 0.8;
+
+        const OVERPASS_SERVERS = [
+            "https://overpass-api.de/api/interpreter",
+            "https://lz4.overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter"
+        ];
+
+        const map = L.map('map').setView([47.44, -0.40], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+        const GeolocControl = L.Control.extend({
+            onAdd: function(map) {
+                const div = L.DomUtil.create('div', 'leaflet-control-geoloc leaflet-bar leaflet-control');
+                div.innerHTML = `<svg class="geoloc-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>`;
+                div.onclick = function(e) { e.stopPropagation(); map.locate({ setView: true, maxZoom: 16, timeout: 30000, enableHighAccuracy: false }); };
+                return div;
+            }
+        });
+        map.addControl(new GeolocControl({ position: 'topleft' }));
+        map.on('locationfound', function(e) { L.marker(e.latlng).addTo(map).bindPopup("Vous êtes ici").openPopup(); });
+
+        let streetsLayer = null; 
+        let communesPolygons = null;
+        let totalStreetsCount = 0;
+        
+        function sanitizeId(id) {
+            if (!id) return "inconnu_" + Math.random().toString(36).substr(2, 9);
+            return String(id).toLowerCase().replace(/[^a-z0-9]/g, "_");
+        }
+
+        async function initMap() {
+            try {
+                document.getElementById('loading-msg').innerText = "Lecture export.geojson...";
+                const response = await fetch('export.geojson');
+                if (!response.ok) throw new Error("Fichier export.geojson introuvable.");
+                const textData = await response.text();
+                communesPolygons = (textData.trim().startsWith('<')) ? osmtogeojson(new DOMParser().parseFromString(textData, "text/xml")) : JSON.parse(textData);
+                
+                const boundaryLayer = L.geoJSON(communesPolygons, { style: { color: "blue", weight: 2, fillOpacity: 0.05, interactive: false } }).addTo(map);
+                map.fitBounds(boundaryLayer.getBounds());
+
+                document.getElementById('loading-msg').innerText = "Chargement des rues...";
+                await loadStreetsRobust(boundaryLayer.getBounds());
+
+                listenToDatabaseUpdates();
+                document.getElementById('loading').classList.add('hidden');
+            } catch (error) {
+                alert("Erreur Init : " + error.message);
+            }
+        }
+
+        async function loadStreetsRobust(bounds) {
+            const s = bounds.getSouth(); const w = bounds.getWest(); const n = bounds.getNorth(); const e = bounds.getEast();
+            
+            // Requete Overpass large
+            const query = `[out:json][timeout:180][maxsize:1073741824];(way["highway"~"^(residential|living_street|tertiary|unclassified|service|secondary)$"](${s},${w},${n},${e}););out geom;`;
+
+            let osmData = null;
+            let success = false;
+            let usedServer = "";
+            const statusLabel = document.getElementById('server-status');
+
+            for (const serverUrl of OVERPASS_SERVERS) {
+                try {
+                    const hostname = new URL(serverUrl).hostname;
+                    statusLabel.innerText = `Serveur : ${hostname}...`;
+                    const response = await fetch(serverUrl, { method: "POST", body: "data=" + encodeURIComponent(query) });
+                    if (response.ok) { 
+                        osmData = await response.json(); 
+                        success = true; 
+                        usedServer = hostname;
+                        break; 
+                    }
+                } catch (err) {}
+            }
+            if (!success) throw new Error("Serveurs OSM indisponibles.");
+
+            document.getElementById('source-display').innerText = "Source: " + usedServer;
+
+            const rawStreets = osmtogeojson(osmData);
+            const filteredFeatures = rawStreets.features.filter(street => {
+                if (street.geometry.type !== 'LineString' && street.geometry.type !== 'MultiLineString') return false;
+                let isInside = false;
+                communesPolygons.features.forEach(commune => {
+                    if (commune.geometry && turf.booleanIntersects(street, commune)) isInside = true;
+                });
+                return isInside;
+            });
+
+            totalStreetsCount = filteredFeatures.length;
+
+            streetsLayer = L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
+                style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
+                onEachFeature: function(feature, layer) {
+                    const streetName = feature.properties.name || "Rue sans nom";
+                    
+                    let rawId = feature.id; 
+                    if (!rawId) rawId = "no_id_" + Math.random().toString(36).substr(2, 9);
+                    const uniqueId = sanitizeId(rawId);
+                    
+                    layer.streetId = uniqueId;
+
+                    layer.on('click', function(e) {
+                        const isDone = (e.target.options.color === COLOR_DONE);
+                        const newState = isDone ? "todo" : "done";
+
+                        set(ref(db, 'rues/' + uniqueId), {
+                            status: newState,
+                            name: streetName,
+                            updatedAt: Date.now()
+                        }).catch(err => {
+                            console.error(err);
+                            alert("Erreur écriture : " + err.message);
+                        });
+                    });
+
+                    layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
+                    layer.on('mouseout', function(e) { e.target.setStyle({ weight: 6 }); });
+                }
+            }).addTo(map);
+        }
+
+        function listenToDatabaseUpdates() {
+            onValue(ref(db, 'rues'), (snapshot) => {
+                const data = snapshot.val() || {};
+                let doneCount = 0;
+                
+                if (streetsLayer) {
+                    streetsLayer.eachLayer(layer => {
+                        const streetData = data[layer.streetId];
+                        if (streetData && streetData.status === "done") {
+                            layer.setStyle({ color: COLOR_DONE, opacity: OPACITY_DONE });
+                            doneCount++; 
+                        } else {
+                            layer.setStyle({ color: COLOR_TODO, opacity: OPACITY_TODO });
+                        }
+                    });
+
+                    const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
+                    document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} segments faits`;
+                    document.getElementById('stats-percent').innerText = `${percent}%`;
+                    document.getElementById('progress-bar').style.width = `${percent}%`;
+                }
+            });
+        }
+
+        initMap();
+    </script>
+</body>
+</html>
