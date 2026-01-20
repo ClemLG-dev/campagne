@@ -137,7 +137,7 @@
             appId: "1:693650330058:web:42f3c6cbbfa0b2366fff33"
         };
         
-        // LISTE DE SERVEURS ÉTENDUE ET OPTIMISÉE
+        // LISTE DE SERVEURS ÉTENDUE
         const OVERPASS_SERVERS = [
             "https://overpass-api.de/api/interpreter",
             "https://lz4.overpass-api.de/api/interpreter",
@@ -237,10 +237,13 @@
                 const textData = await response.text();
                 communesPolygons = (textData.trim().startsWith('<')) ? osmtogeojson(new DOMParser().parseFromString(textData, "text/xml")) : JSON.parse(textData);
                 
-                // FOND CARTE TRANSPARENT
+                // FOND CARTE TRANSPARENT + FILTRE DES POINTS
                 const boundaryLayer = L.geoJSON(communesPolygons, { 
                     style: function(feature) {
                         return { color: "blue", weight: 2, fillColor: "blue", fillOpacity: 0, interactive: false };
+                    },
+                    filter: function(feature) {
+                        return feature.geometry.type !== "Point"; // Suppression des pins bleus
                     }
                 }).addTo(map);
                 map.fitBounds(boundaryLayer.getBounds());
@@ -285,7 +288,6 @@
 
         async function loadStreetsRobust(bounds) {
             const s = bounds.getSouth(); const w = bounds.getWest(); const n = bounds.getNorth(); const e = bounds.getEast();
-            // REQUETE SIMPLIFIEE ET TIMEOUT REDUIT POUR EVITER LES ERREURS 504
             const query = `[out:json][timeout:25];(way["highway"~"^(residential|living_street|tertiary|unclassified|service|secondary)$"](${s},${w},${n},${e}););out geom;`;
 
             let osmData = null;
