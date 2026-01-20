@@ -367,19 +367,39 @@
             L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
-                    // --- GESTION INTELLIGENTE DU NOM ---
+                    
+                    // --- CORRECTION : Récupération des tags OSM ---
                     const props = feature.properties;
-                    let streetName = "Voie sans nom";
+                    // Parfois osmtogeojson stocke les tags directement dans properties, parfois dans properties.tags
+                    const tags = props.tags || props;
 
-                    // 1. Essayer le nom
-                    if (props.name) {
-                        streetName = props.name;
-                        // Si on a aussi une référence (ex: D12), on l'ajoute
-                        if (props.ref) streetName += " (" + props.ref + ")";
+                    let streetName = "";
+
+                    // 1. Chercher le NOM (name)
+                    if (tags.name) {
+                        streetName = tags.name;
+                        if (tags.ref) streetName += ` (${tags.ref})`;
                     } 
-                    // 2. Si pas de nom, essayer la ref (ex: D74)
-                    else if (props.ref) {
-                        streetName = "Route " + props.ref;
+                    // 2. Si pas de nom, chercher la REF (ref)
+                    else if (tags.ref) {
+                        streetName = `Route ${tags.ref}`;
+                    }
+                    // 3. Si toujours rien, traduire le TYPE (highway)
+                    else {
+                        const typeTrad = {
+                            'residential': 'Rue résidentielle',
+                            'service': 'Voie de service',
+                            'living_street': 'Zone de rencontre',
+                            'unclassified': 'Route mineure',
+                            'tertiary': 'Route locale',
+                            'secondary': 'Route départementale',
+                            'primary': 'Route principale',
+                            'track': 'Chemin',
+                            'path': 'Sentier',
+                            'cycleway': 'Piste cyclable',
+                            'footway': 'Chemin piéton'
+                        };
+                        streetName = typeTrad[tags.highway] || "Voie sans nom";
                     }
 
                     let rawId = feature.id; 
