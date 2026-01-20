@@ -76,7 +76,7 @@
 
     <div class="legend">
         <h6 class="fw-bold mb-3 border-bottom pb-2">Légende</h6>
-        <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.1); border: 2px solid blue;"></span><span>Frontières</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.0); border: 2px solid blue;"></span><span>Frontières</span></div>
         <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>À faire</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Fait</span></div>
     </div>
@@ -149,8 +149,7 @@
         map.addControl(new GeolocControl({ position: 'topleft' }));
         map.on('locationfound', function(e) { L.marker(e.latlng).addTo(map).bindPopup("Vous êtes ici").openPopup(); });
 
-        // --- NOUVEAU : CONTROLE FILTRE ---
-        let currentFilter = 'all'; // 'all', 'done', 'todo'
+        let currentFilter = 'all'; 
         const FilterControl = L.Control.extend({
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-filter');
@@ -161,10 +160,9 @@
                         <option value="todo">Uniquement : À faire</option>
                     </select>
                 `;
-                // Gestion du changement de filtre
                 div.querySelector('select').addEventListener('change', function(e) {
                     currentFilter = e.target.value;
-                    updateMapDisplay(); // On rafraîchit l'affichage
+                    updateMapDisplay(); 
                 });
                 return div;
             }
@@ -173,11 +171,11 @@
 
 
         // VARIABLES GLOBALES
-        let streetsLayer = L.layerGroup().addTo(map); // Le groupe affiché sur la carte
-        let allLayersList = []; // Liste cachée de TOUTES les couches (pour pouvoir filtrer)
+        let streetsLayer = L.layerGroup().addTo(map); 
+        let allLayersList = []; 
         let communesPolygons = null;
         let totalStreetsCount = 0;
-        let latestFirebaseData = {}; // On stocke les données pour filtrer sans rappeler la base
+        let latestFirebaseData = {}; 
 
         function sanitizeId(id) {
             if (!id) return "inconnu_" + Math.random().toString(36).substr(2, 9);
@@ -192,7 +190,8 @@
                 const textData = await response.text();
                 communesPolygons = (textData.trim().startsWith('<')) ? osmtogeojson(new DOMParser().parseFromString(textData, "text/xml")) : JSON.parse(textData);
                 
-                const boundaryLayer = L.geoJSON(communesPolygons, { style: { color: "blue", weight: 2, fillOpacity: 0.05, interactive: false } }).addTo(map);
+                // ICI : fillOpacity: 0 POUR TRANSPARENCE TOTALE
+                const boundaryLayer = L.geoJSON(communesPolygons, { style: { color: "blue", weight: 2, fillOpacity: 0, interactive: false } }).addTo(map);
                 map.fitBounds(boundaryLayer.getBounds());
 
                 document.getElementById('loading-msg').innerText = "Chargement des rues...";
@@ -235,8 +234,6 @@
 
             totalStreetsCount = filteredFeatures.length;
 
-            // ON CREE LES COUCHES MAIS ON NE LES AJOUTE PAS ENCORE AU GROUPE
-            // On les stocke dans allLayersList
             L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
@@ -258,48 +255,37 @@
                     layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
                     layer.on('mouseout', function(e) { e.target.setStyle({ weight: 6 }); });
 
-                    // AJOUT A LA LISTE GLOBALE
                     allLayersList.push(layer);
                 }
             });
-            // Pas de .addTo(map) ici, ce sera géré par updateMapDisplay
         }
 
-        // --- NOUVELLE FONCTION CENTRALE D'AFFICHAGE ---
         function updateMapDisplay() {
-            // 1. Nettoyer la carte
             streetsLayer.clearLayers();
-
             let doneCount = 0;
 
-            // 2. Parcourir toutes les rues connues
             allLayersList.forEach(layer => {
                 const streetData = latestFirebaseData[layer.streetId];
                 const isDone = (streetData && streetData.status === "done");
 
-                // Calcul des stats (sur la totalité, peu importe le filtre)
                 if (isDone) doneCount++;
 
-                // Définition de la couleur
                 if (isDone) {
                     layer.setStyle({ color: COLOR_DONE, opacity: OPACITY_DONE });
                 } else {
                     layer.setStyle({ color: COLOR_TODO, opacity: OPACITY_TODO });
                 }
 
-                // 3. Appliquer le FILTRE
                 let shouldShow = false;
                 if (currentFilter === 'all') shouldShow = true;
                 else if (currentFilter === 'done' && isDone) shouldShow = true;
                 else if (currentFilter === 'todo' && !isDone) shouldShow = true;
 
-                // 4. Ajouter à la carte si ça matche
                 if (shouldShow) {
                     streetsLayer.addLayer(layer);
                 }
             });
 
-            // 5. Mise à jour barre de progression (Toujours sur le global)
             const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
             document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} segments faits`;
             document.getElementById('stats-percent').innerText = `${percent}%`;
@@ -308,7 +294,6 @@
 
         function listenToDatabaseUpdates() {
             onValue(ref(db, 'rues'), (snapshot) => {
-                // On sauvegarde les données et on lance l'affichage
                 latestFirebaseData = snapshot.val() || {};
                 updateMapDisplay();
             });
