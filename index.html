@@ -24,27 +24,17 @@
             position: absolute; bottom: 30px; right: 10px; z-index: 1000;
             background: white; border-radius: 8px; 
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            overflow: hidden; /* Important pour masquer le contenu */
+            overflow: hidden; 
             width: 200px;
             transition: all 0.3s ease;
         }
         .legend-header {
-            padding: 10px 15px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
+            padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #eee;
+            cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; align-items: center; user-select: none;
         }
         .legend-content { padding: 15px; }
-        
-        /* Classe pour masquer le contenu */
         .legend-container.collapsed .legend-content { display: none; }
-        .legend-container.collapsed { width: auto; } /* Prend moins de place si fermé */
-
+        .legend-container.collapsed { width: auto; }
         .legend-item { margin-bottom: 8px; display: flex; align-items: center; }
         .legend-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; display: inline-block; }
         
@@ -52,30 +42,36 @@
         .loading-overlay.hidden { opacity: 0; pointer-events: none; }
         
         /* CONTROLES A GAUCHE */
-        .leaflet-left .leaflet-control { margin-bottom: 10px; } /* Espace entre les blocs */
-        
+        .leaflet-left .leaflet-control { margin-bottom: 10px; }
         .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .geoloc-icon { width: 20px; height: 20px; fill: #333; }
         .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
         
         .custom-filter select { pointer-events: auto; background: white; border: 2px solid rgba(0,0,0,0.4); border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
 
-        /* CASES A COCHER (Déplacées à gauche) */
-        .leaflet-control-layers { 
-            border: 2px solid rgba(0,0,0,0.4) !important; 
-            border-radius: 4px !important; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
-            margin-left: 10px !important; /* Alignement avec les autres contrôles gauche */
-        }
+        /* CASES A COCHER */
+        .leaflet-control-layers { border: 2px solid rgba(0,0,0,0.4) !important; border-radius: 4px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important; margin-left: 10px !important; }
         .leaflet-control-layers-expanded { padding: 8px !important; font-size: 13px !important; font-weight: bold !important; color: #333 !important; background: white !important; }
 
-        /* INFOBULLES SIMPLIFIÉES */
-        .leaflet-tooltip { 
+        /* --- INFOBULLES PANNEAUX (GROSSES) --- */
+        .panneau-tooltip { 
             font-size: 14px !important; font-family: sans-serif !important; border: 1px solid #666 !important; 
             min-width: 250px !important; max-width: 400px !important; white-space: normal !important; 
             padding: 10px !important; line-height: 1.4 !important; background-color: white !important; 
             color: black !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important; opacity: 1 !important; 
             border-radius: 6px !important; z-index: 9000 !important;
+        }
+
+        /* --- NOUVEAU : INFOBULLES RUES (PETITES) --- */
+        .street-tooltip {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #333;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            font-weight: bold;
+            font-size: 12px;
+            padding: 2px 6px;
+            color: #333;
         }
         
         .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
@@ -195,9 +191,9 @@
             
             legend.classList.toggle('collapsed');
             if (legend.classList.contains('collapsed')) {
-                arrow.innerText = '▲'; // Flèche haut quand fermé
+                arrow.innerText = '▲'; 
             } else {
-                arrow.innerText = '▼'; // Flèche bas quand ouvert
+                arrow.innerText = '▼'; 
             }
         };
 
@@ -266,9 +262,8 @@
         });
         map.addControl(new FilterControl({ position: 'topleft' }));
 
-        // 3. Filtre TYPE (Cases à cocher - TOPLEFT maintenant)
+        // 3. Filtre TYPE (Cases à cocher)
         const overlays = { "Rues": streetsGroup, "Panneaux": panneauxGroup };
-        // position: 'topleft' pour les mettre sous les autres
         L.control.layers(null, overlays, { position: 'topleft', collapsed: false }).addTo(map);
 
         // =========================================================
@@ -309,7 +304,7 @@
                     marker.streetId = panneauId;
                     marker.isPanneau = true; 
                     
-                    // --- INFOBULLE CORRIGÉE (SIMPLE) ---
+                    // --- INFOBULLE PANNEAU (Style: panneau-tooltip) ---
                     const infoText = `
                         <div style="text-align:left;">
                             <strong style="font-size:16px; display:block; margin-bottom:5px; color:#2c3e50;">${panneau.colA}</strong>
@@ -317,7 +312,7 @@
                             <em style="color:#000; display:block; border-top:1px solid #ccc; padding-top:8px; font-style:italic; font-weight:normal;">${panneau.colC}</em>
                         </div>
                     `;
-                    marker.bindTooltip(infoText, { direction: 'top', offset: [0, -15], opacity: 1, className: 'leaflet-tooltip' });
+                    marker.bindTooltip(infoText, { direction: 'top', offset: [0, -15], opacity: 1, className: 'panneau-tooltip' });
 
                     marker.on('click', function(e) {
                         const isDone = (e.target.options.fillColor === COLOR_DONE);
@@ -378,6 +373,11 @@
                     const uniqueId = sanitizeId(rawId);
                     
                     layer.streetId = uniqueId;
+                    
+                    // --- INFOBULLE RUE (SUIVEUSE) ---
+                    // Ajout du nom de rue au survol qui suit la souris
+                    layer.bindTooltip(streetName, { sticky: true, className: 'street-tooltip' });
+
                     layer.on('click', function(e) {
                         const isDone = (e.target.options.color === COLOR_DONE);
                         const newState = isDone ? "todo" : "done";
