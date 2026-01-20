@@ -11,18 +11,41 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
     
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+        /* --- STABILISATION TOTALE (ANTI-SCROLL) --- */
+        body, html { 
+            margin: 0; padding: 0; 
+            height: 100%; width: 100%; 
+            position: fixed; /* Cloue la page à l'écran */
+            overflow: hidden; /* Interdit tout dépassement */
+            overscroll-behavior: none; /* Empêche l'effet élastique sur iOS */
+            font-family: sans-serif; 
+            background-color: #2c3e50; 
+        }
         
-        /* HEADER */
-        #header { height: 70px; background: #2c3e50; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 2000; position: relative; transition: all 0.3s; }
+        /* HEADER (Fixe en haut) */
+        #header { 
+            position: absolute; top: 0; left: 0; width: 100%; 
+            height: 70px; 
+            background: #2c3e50; color: white; 
+            display: flex; align-items: center; justify-content: space-between; 
+            padding: 0 20px; z-index: 2000; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
         .stats-container { width: 300px; text-align: right; margin-left: 15px; }
         .progress { height: 10px; background-color: #4a6278; }
         
-        /* CARTE */
-        #map { height: calc(100vh - 70px); width: 100%; background: #e5e5e5; }
+        /* CARTE (Prend tout le reste) */
+        #map { 
+            position: absolute; top: 70px; bottom: 0; left: 0; right: 0;
+            background: #e5e5e5; 
+            z-index: 1;
+        }
         
         /* BARRE DE RECHERCHE */
-        #search-container { position: absolute; top: 85px; left: 50%; transform: translateX(-50%); width: 300px; z-index: 1000; transition: top 0.3s ease; }
+        #search-container { 
+            position: absolute; top: 85px; left: 50%; transform: translateX(-50%); 
+            width: 300px; z-index: 1500; 
+        }
         #search-input { width: 100%; padding: 10px; border-radius: 20px; border: 2px solid rgba(0,0,0,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.1); outline: none; font-size: 16px; background: white; }
         #search-results { background: white; margin-top: 5px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: none; max-height: 300px; overflow-y: auto; }
         .search-result-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
@@ -77,20 +100,19 @@
             #header h1 { font-size: 0.8rem; line-height: 1.1; white-space: normal; }
             .stats-container { width: 110px; margin-left: 8px; }
             #stats-text { font-size: 0.7rem; }
-            #map { height: calc(100vh - 60px); }
+            
+            /* 2. Ajustement Carte */
+            #map { top: 60px; }
 
-            /* 2. Barre de recherche : En haut */
+            /* 3. Barre de recherche + basse */
             #search-container { width: 90%; top: 70px; }
             
-            /* 3. Masquer le zoom bouton */
+            /* 4. UI Simplifiée */
             .leaflet-control-zoom { display: none; }
-
-            /* 4. Légende discrète */
             .legend-container { width: 160px; bottom: 20px; right: 5px; }
             .legend-content { padding: 10px; font-size: 12px; }
             
-            /* 5. FIX CRUCIAL : On descend les contrôles (Boutons) BEAUCOUP plus bas */
-            /* Pour laisser la place à la barre de recherche sans chevauchement */
+            /* 5. BOUTONS DESCENDUS (Anti-chevauchement) */
             .leaflet-top { top: 130px; transition: top 0.3s; } 
             .leaflet-control-layers { margin-top: 0 !important; }
         }
@@ -242,7 +264,11 @@
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-control-geoloc leaflet-bar leaflet-control');
                 div.innerHTML = `<svg class="geoloc-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>`;
-                div.onclick = function(e) { e.stopPropagation(); map.locate({ setView: true, maxZoom: 16, timeout: 30000, enableHighAccuracy: false }); }; return div;
+                div.onclick = function(e) { 
+                    e.stopPropagation(); e.preventDefault(); // IMPORTANT : EMPÊCHE LE SCROLL/FOCUS
+                    map.locate({ setView: true, maxZoom: 16, timeout: 30000, enableHighAccuracy: false }); 
+                }; 
+                return div;
             }
         });
         map.addControl(new GeolocControl({ position: 'topleft' }));
@@ -251,7 +277,7 @@
             if (userMarker) { map.removeLayer(userMarker); }
             const gpsIcon = L.divIcon({ className: 'user-location-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
             userMarker = L.marker(e.latlng, {icon: gpsIcon}).addTo(map);
-            // Suppression du popup "Vous êtes ici"
+            // PAS DE POPUP "VOUS ETES ICI" = PAS DE DÉCALAGE
         });
 
         const FilterControl = L.Control.extend({
