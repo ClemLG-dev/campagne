@@ -61,8 +61,19 @@
         .note-popup .leaflet-popup-content-wrapper { background: #f8f9fa; border-radius: 8px; }
         .btn-delete-note { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; width: 100%; margin-top: 5px; }
 
-        .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
+        /* STYLE MARQUEUR GPS PULSANT */
+        .user-location-marker {
+            background-color: #4285F4;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(66, 133, 244, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); }
+        }
 
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #2c3e50; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
     </style>
@@ -205,6 +216,7 @@
         let streetsGroup = L.layerGroup().addTo(map);
         let panneauxGroup = L.layerGroup().addTo(map);
         let notesGroup = L.layerGroup().addTo(map);
+        let userMarker = null; // VARIABLE POUR LA GEOLOC
 
         let allLayersList = []; let communesPolygons = null; let totalStreetsCount = 0; let latestFirebaseData = {}; let latestNotesData = {}; let currentFilter = 'all'; 
 
@@ -216,6 +228,23 @@
             }
         });
         map.addControl(new GeolocControl({ position: 'topleft' }));
+
+        // --- GESTION AMELIOREE DE LA GEOLOC ---
+        map.on('locationfound', function(e) {
+            // Nettoyage ancien marqueur
+            if (userMarker) { map.removeLayer(userMarker); }
+            
+            // Création icône GPS pulsante
+            const gpsIcon = L.divIcon({
+                className: 'user-location-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            // Ajout nouveau marqueur
+            userMarker = L.marker(e.latlng, {icon: gpsIcon}).addTo(map);
+            userMarker.bindPopup("Vous êtes ici").openPopup();
+        });
 
         const FilterControl = L.Control.extend({
             onAdd: function(map) {
@@ -230,7 +259,7 @@
         const overlays = { "Rues": streetsGroup, "Panneaux": panneauxGroup, "Notes": notesGroup };
         L.control.layers(baseMaps, overlays, { position: 'topleft', collapsed: false }).addTo(map);
 
-        // --- GESTION AJOUT DE NOTES (CLIC DROIT / CTRL CLICK) ---
+        // --- GESTION AJOUT DE NOTES ---
         function handleAddNote(e) {
             const noteText = prompt("Ajouter une note à cet endroit :");
             if (noteText) {
@@ -247,7 +276,6 @@
             if (e.originalEvent.ctrlKey) handleAddNote(e); // Ctrl + Clic
         });
 
-        // --- FONCTION SUPPRESSION NOTE ---
         window.deleteNote = function(noteId) {
             if (confirm("Supprimer cette note ?")) {
                 remove(ref(db, 'notes/' + noteId));
