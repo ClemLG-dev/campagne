@@ -136,7 +136,7 @@
             <img src="logo.jpg" alt="Logo" style="height: 50px; width: auto; margin-right: 15px; object-fit: contain;">
             <div>
                 <h1 class="h6 m-0 fw-bold text-nowrap">Suivi des actions<br>Loire-Authion Autrement</h1>
-                <small class="text-white-50 d-none d-sm-block" style="font-size: 0.7rem;">© Clément LE GRAND</small>
+                <small class="text-white-50 d-none d-sm-block" style="font-size: 0.7rem;">©Clément LE GRAND - Tous droits réservés.</small>
             </div>
         </div>
         <div class="stats-container">
@@ -412,7 +412,7 @@
                 if (matchesStatus) { if (layer.isPanneau) panneauxGroup.addLayer(layer); else streetsGroup.addLayer(layer); }
             });
             const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
-            document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} segments faits`;
+            document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} rues faites`;
             document.getElementById('stats-percent').innerText = `${percent}%`;
             document.getElementById('progress-bar').style.width = `${percent}%`;
         }
