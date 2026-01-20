@@ -19,14 +19,30 @@
         
         #map { height: calc(100vh - 70px); width: 100%; background: #e5e5e5; }
         
+        /* --- BARRE DE RECHERCHE --- */
+        #search-container {
+            position: absolute; top: 85px; left: 50%; transform: translateX(-50%);
+            width: 300px; z-index: 1000;
+        }
+        #search-input {
+            width: 100%; padding: 10px; border-radius: 20px; border: 2px solid rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); outline: none;
+        }
+        #search-results {
+            background: white; margin-top: 5px; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: none; max-height: 300px; overflow-y: auto;
+        }
+        .search-result-item {
+            padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px;
+        }
+        .search-result-item:hover { background-color: #f8f9fa; }
+
         /* --- LEGENDE RETRACTABLE --- */
         .legend-container {
             position: absolute; bottom: 30px; right: 10px; z-index: 1000;
             background: white; border-radius: 8px; 
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            overflow: hidden; 
-            width: 200px;
-            transition: all 0.3s ease;
+            overflow: hidden; width: 200px; transition: all 0.3s ease;
         }
         .legend-header {
             padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #eee;
@@ -41,7 +57,7 @@
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; transition: opacity 0.5s ease; }
         .loading-overlay.hidden { opacity: 0; pointer-events: none; }
         
-        /* CONTROLES A GAUCHE */
+        /* CONTROLES */
         .leaflet-left .leaflet-control { margin-bottom: 10px; }
         .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .geoloc-icon { width: 20px; height: 20px; fill: #333; }
@@ -49,15 +65,13 @@
         
         .custom-filter select { pointer-events: auto; background: white; border: 2px solid rgba(0,0,0,0.4); border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
 
-        /* CASES A COCHER */
         .leaflet-control-layers { border: 2px solid rgba(0,0,0,0.4) !important; border-radius: 4px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important; margin-left: 10px !important; }
         .leaflet-control-layers-expanded { padding: 8px !important; font-size: 13px !important; font-weight: bold !important; color: #333 !important; background: white !important; }
 
-        /* --- SUPPRESSION DU CARRÉ NOIR AU CLIC (FOCUS) --- */
+        /* UTILITAIRES VISUELS */
         path.leaflet-interactive:focus { outline: none; }
         .leaflet-interactive { -webkit-tap-highlight-color: transparent; }
 
-        /* --- INFOBULLES PANNEAUX (GROSSES) --- */
         .panneau-tooltip { 
             font-size: 14px !important; font-family: sans-serif !important; border: 1px solid #666 !important; 
             min-width: 250px !important; max-width: 400px !important; white-space: normal !important; 
@@ -66,16 +80,9 @@
             border-radius: 6px !important; z-index: 9000 !important;
         }
 
-        /* --- INFOBULLES RUES (PETITES) --- */
         .street-tooltip {
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #333;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-            font-weight: bold;
-            font-size: 12px;
-            padding: 2px 6px;
-            color: #333;
+            background: rgba(255, 255, 255, 0.95); border: 1px solid #333; border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4); font-weight: bold; font-size: 12px; padding: 2px 6px; color: #333;
         }
         
         .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
@@ -116,6 +123,11 @@
         </div>
     </div>
     
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="🔍 Rechercher une rue..." onkeyup="searchStreets()">
+        <div id="search-results"></div>
+    </div>
+
     <div id="map"></div>
     <div id="source-display" class="source-info">Source: Chargement...</div>
 
@@ -126,6 +138,7 @@
         <div class="legend-content">
             <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.0); border: 2px solid blue;"></span><span>Frontières</span></div>
             <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>Rue à faire</span></div>
+            <div class="legend-item"><span class="legend-color" style="background: #fd7e14;"></span><span>En cours / À repasser</span></div>
             <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Rue faite</span></div>
             <hr style="margin: 8px 0;">
             <div class="legend-item"><span class="legend-color" style="background: #dc3545; border: 2px solid white; border-radius: 50%;"></span><span>Panneau à faire</span></div>
@@ -184,6 +197,7 @@
         ];
         
         const COLOR_TODO = "#dc3545"; 
+        const COLOR_DOING = "#fd7e14"; // ORANGE
         const COLOR_DONE = "#28a745"; 
         const OPACITY_TODO = 0.4; 
         const OPACITY_DONE = 0.8;
@@ -194,12 +208,48 @@
             const arrow = document.getElementById('legend-arrow');
             
             legend.classList.toggle('collapsed');
-            if (legend.classList.contains('collapsed')) {
-                arrow.innerText = '▲'; 
+            arrow.innerText = legend.classList.contains('collapsed') ? '▲' : '▼';
+        };
+
+        // FONCTION RECHERCHE
+        window.searchStreets = function() {
+            const input = document.getElementById('search-input').value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.innerHTML = '';
+            
+            if (input.length < 3) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const matches = allLayersList.filter(l => 
+                !l.isPanneau && l.streetNameNormal && l.streetNameNormal.includes(input)
+            ).slice(0, 5);
+
+            if (matches.length > 0) {
+                resultsDiv.style.display = 'block';
+                matches.forEach(layer => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerText = layer.streetNameDisplay;
+                    div.onclick = () => {
+                        map.fitBounds(layer.getBounds(), { maxZoom: 17 });
+                        layer.openTooltip();
+                        resultsDiv.style.display = 'none';
+                    };
+                    resultsDiv.appendChild(div);
+                });
             } else {
-                arrow.innerText = '▼'; 
+                resultsDiv.style.display = 'none';
             }
         };
+
+        // Fermer la recherche si on clique ailleurs
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById('search-container').contains(e.target)) {
+                document.getElementById('search-results').style.display = 'none';
+            }
+        });
 
         // AUTHENTIFICATION
         window.checkPassword = function() {
@@ -218,15 +268,20 @@
             console.log("✅ Firebase connecté.");
         } catch (e) { console.error("Erreur Firebase:", e); }
 
-        // MAP SETUP
-        const map = L.map('map', {
-            doubleClickZoom: false // EMPECHE LE ZOOM CLIC/DOUBLE-CLIC
-        }).setView([47.44, -0.40], 13);
+        // =========================================================
+        // 2. CREATION DES CALQUES (PLAN vs SATELLITE)
+        // =========================================================
         
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        const planLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: 'Plan' });
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Satellite' });
+
+        const map = L.map('map', {
+            layers: [planLayer], // Plan par défaut
+            doubleClickZoom: false 
+        }).setView([47.44, -0.40], 13);
 
         // =========================================================
-        // 2. CREATION DES GROUPES & CONTROLES
+        // 3. CONTROLES
         // =========================================================
         
         let streetsGroup = L.layerGroup().addTo(map);
@@ -257,6 +312,7 @@
                     <select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;">
                         <option value="all">Statut : Tout</option>
                         <option value="done">Statut : Fait</option>
+                        <option value="doing">Statut : En cours</option>
                         <option value="todo">Statut : À faire</option>
                     </select>
                 `;
@@ -269,12 +325,13 @@
         });
         map.addControl(new FilterControl({ position: 'topleft' }));
 
-        // 3. Filtre TYPE (Cases à cocher)
+        // 3. Gestionnaire de Calques (Plan/Sat + Rues/Panneaux)
+        const baseMaps = { "Plan": planLayer, "Satellite": satLayer };
         const overlays = { "Rues": streetsGroup, "Panneaux": panneauxGroup };
-        L.control.layers(null, overlays, { position: 'topleft', collapsed: false }).addTo(map);
+        L.control.layers(baseMaps, overlays, { position: 'topleft', collapsed: false }).addTo(map);
 
         // =========================================================
-        // 3. LOGIQUE METIER
+        // 4. LOGIQUE METIER
         // =========================================================
 
         function sanitizeId(id) {
@@ -290,14 +347,12 @@
                 const textData = await response.text();
                 communesPolygons = (textData.trim().startsWith('<')) ? osmtogeojson(new DOMParser().parseFromString(textData, "text/xml")) : JSON.parse(textData);
                 
-                // FOND CARTE TRANSPARENT + FILTRE DES POINTS
+                // FOND CARTE TRANSPARENT (Zone de délimitation)
                 const boundaryLayer = L.geoJSON(communesPolygons, { 
                     style: function(feature) {
                         return { color: "blue", weight: 2, fillColor: "blue", fillOpacity: 0, interactive: false };
                     },
-                    filter: function(feature) {
-                        return feature.geometry.type !== "Point"; 
-                    }
+                    filter: function(feature) { return feature.geometry.type !== "Point"; }
                 }).addTo(map);
                 map.fitBounds(boundaryLayer.getBounds());
 
@@ -311,7 +366,6 @@
                     marker.streetId = panneauId;
                     marker.isPanneau = true; 
                     
-                    // --- INFOBULLE PANNEAU (Style: panneau-tooltip) ---
                     const infoText = `
                         <div style="text-align:left;">
                             <strong style="font-size:16px; display:block; margin-bottom:5px; color:#2c3e50;">${panneau.colA}</strong>
@@ -321,9 +375,12 @@
                     `;
                     marker.bindTooltip(infoText, { direction: 'top', offset: [0, -15], opacity: 1, className: 'panneau-tooltip' });
 
+                    // LOGIQUE CLIC PANNEAU (BINAIRE)
                     marker.on('click', function(e) {
-                        const isDone = (e.target.options.fillColor === COLOR_DONE);
-                        const newState = isDone ? "todo" : "done";
+                        const currentStatus = (latestFirebaseData[panneauId] && latestFirebaseData[panneauId].status) || 'todo';
+                        // Bascule simple : Si fait -> todo, sinon -> fait
+                        const newState = (currentStatus === 'done') ? "todo" : "done";
+                        
                         set(ref(db, 'rues/' + panneauId), {
                             status: newState, name: panneau.colA + " (" + panneau.colB + ")", updatedAt: Date.now()
                         }).catch(err => { alert("Erreur écriture : " + err.message); });
@@ -375,37 +432,17 @@
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
                     
-                    // --- CORRECTION ETROITE : Récupération des tags OSM ---
                     const props = feature.properties;
-                    // Parfois osmtogeojson stocke les tags directement dans properties, parfois dans properties.tags
                     const tags = props.tags || props;
-
                     let streetName = "";
 
-                    // 1. Chercher le NOM (name)
                     if (tags.name) {
                         streetName = tags.name;
                         if (tags.ref) streetName += ` (${tags.ref})`;
-                    } 
-                    // 2. Si pas de nom, chercher la REF (ref)
-                    else if (tags.ref) {
+                    } else if (tags.ref) {
                         streetName = `Route ${tags.ref}`;
-                    }
-                    // 3. Si toujours rien, traduire le TYPE (highway)
-                    else {
-                        const typeTrad = {
-                            'residential': 'Rue résidentielle',
-                            'service': 'Voie de service',
-                            'living_street': 'Zone de rencontre',
-                            'unclassified': 'Route mineure',
-                            'tertiary': 'Route locale',
-                            'secondary': 'Route départementale',
-                            'primary': 'Route principale',
-                            'track': 'Chemin',
-                            'path': 'Sentier',
-                            'cycleway': 'Piste cyclable',
-                            'footway': 'Chemin piéton'
-                        };
+                    } else {
+                        const typeTrad = { 'residential': 'Rue résidentielle', 'service': 'Voie de service', 'living_street': 'Zone de rencontre', 'unclassified': 'Route mineure', 'tertiary': 'Route locale', 'secondary': 'Route départementale', 'primary': 'Route principale', 'track': 'Chemin', 'path': 'Sentier' };
                         streetName = typeTrad[tags.highway] || "Voie sans nom";
                     }
 
@@ -415,14 +452,24 @@
                     
                     layer.streetId = uniqueId;
                     
-                    // --- INFOBULLE RUE (SUIVEUSE) ---
+                    // Propriétés pour la recherche
+                    layer.streetNameDisplay = streetName;
+                    layer.streetNameNormal = streetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
                     layer.bindTooltip(streetName, { sticky: true, className: 'street-tooltip' });
 
+                    // LOGIQUE CLIC RUE (TERNAIRE: TODO -> DOING -> DONE -> TODO)
                     layer.on('click', function(e) {
-                        const isDone = (e.target.options.color === COLOR_DONE);
-                        const newState = isDone ? "todo" : "done";
-                        set(ref(db, 'rues/' + uniqueId), { status: newState, name: streetName, updatedAt: Date.now() }).catch(err => { alert("Erreur écriture : " + err.message); });
+                        const currentStatus = (latestFirebaseData[uniqueId] && latestFirebaseData[uniqueId].status) || 'todo';
+                        let nextStatus = 'todo';
+
+                        if (currentStatus === 'todo') nextStatus = 'doing';
+                        else if (currentStatus === 'doing') nextStatus = 'done';
+                        else if (currentStatus === 'done') nextStatus = 'todo';
+
+                        set(ref(db, 'rues/' + uniqueId), { status: nextStatus, name: streetName, updatedAt: Date.now() }).catch(err => { alert("Erreur écriture : " + err.message); });
                     });
+                    
                     layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
                     layer.on('mouseout', function(e) { e.target.setStyle({ weight: 6 }); });
                     allLayersList.push(layer);
@@ -438,19 +485,29 @@
 
             allLayersList.forEach(layer => {
                 const streetData = latestFirebaseData[layer.streetId];
-                const isDone = (streetData && streetData.status === "done");
-                if (isDone && !layer.isPanneau) doneCount++;
+                const status = (streetData && streetData.status) ? streetData.status : 'todo';
+
+                // Stats : on compte 'done' comme fait. 'doing' ne compte pas encore.
+                if (status === 'done' && !layer.isPanneau) doneCount++;
 
                 if (layer.isPanneau) {
-                    layer.setStyle({ fillColor: isDone ? COLOR_DONE : COLOR_TODO, color: "white" });
+                    // Panneaux (Binaire : Rouge / Vert)
+                    layer.setStyle({ fillColor: status === 'done' ? COLOR_DONE : COLOR_TODO, color: "white" });
                 } else {
-                    layer.setStyle({ color: isDone ? COLOR_DONE : COLOR_TODO, opacity: isDone ? OPACITY_DONE : OPACITY_TODO });
+                    // Rues (Ternaire : Rouge / Orange / Vert)
+                    let color = COLOR_TODO;
+                    let opacity = OPACITY_TODO;
+                    
+                    if (status === 'done') { color = COLOR_DONE; opacity = OPACITY_DONE; }
+                    else if (status === 'doing') { color = COLOR_DOING; opacity = OPACITY_DONE; }
+
+                    layer.setStyle({ color: color, opacity: opacity });
                 }
 
+                // Filtrage
                 let matchesStatus = false;
                 if (currentFilter === 'all') matchesStatus = true;
-                else if (currentFilter === 'done' && isDone) matchesStatus = true;
-                else if (currentFilter === 'todo' && !isDone) matchesStatus = true;
+                else if (currentFilter === status) matchesStatus = true; // 'todo', 'doing', 'done'
 
                 if (matchesStatus) {
                     if (layer.isPanneau) panneauxGroup.addLayer(layer);
