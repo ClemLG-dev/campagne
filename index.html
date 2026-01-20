@@ -26,19 +26,29 @@
         .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
         .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
         
+        /* STYLE DU FILTRE STATUT (En haut à gauche) */
         .custom-filter select {
             pointer-events: auto; background: white; border: 2px solid rgba(0,0,0,0.2);
             border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px;
             cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
         }
-        
-        /* Style amélioré pour l'infobulle */
+
+        /* --- AMELIORATION VISIBILITE INFOBULLES --- */
         .leaflet-tooltip { 
-            font-size: 13px; border: 1px solid #333; 
-            max-width: 250px; white-space: normal; 
-            padding: 8px; line-height: 1.4;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            font-size: 14px;            /* Texte plus gros */
+            border: 1px solid #333; 
+            min-width: 250px;           /* Largeur min */
+            max-width: 400px;           /* Largeur max augmentée */
+            white-space: normal;        /* Permet le retour à la ligne */
+            padding: 10px;              /* Plus d'espace intérieur */
+            line-height: 1.5;           /* Lignes plus aérées */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); /* Ombre portée */
+            border-radius: 6px;
         }
+
+        /* Style des cases à cocher (Leaflet standard) */
+        .leaflet-control-layers-toggle { width: 36px; height: 36px; }
+        .leaflet-control-layers-expanded { padding: 10px; font-size: 14px; font-weight: bold; }
         
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
 
@@ -109,7 +119,6 @@
         
         const MOT_DE_PASSE = "loire2026";
         
-        // --- DONNÉES EXTRAITES DU FICHIER EXCEL ---
         const LISTE_PANNEAUX = [
             { lat: 47.455777409985004, lng: -0.39837537609926976, colA: "Maison des loisirs", colB: "Rue du parc 49800 Loire-Authion", colC: "Sous le préau de la maison des loisirs" },
             { lat: 47.47820216373718, lng: -0.39149954760158634, colA: "Lieu-dit Ridereau", colB: "1748-1766 Rte de Ridereau 49800 Loire-Authion", colC: "Croisement des routes" },
@@ -180,9 +189,9 @@
                 const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-filter');
                 div.innerHTML = `
                     <select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;">
-                        <option value="all">Afficher : Tout</option>
-                        <option value="done">Uniquement : Fait</option>
-                        <option value="todo">Uniquement : À faire</option>
+                        <option value="all">Statut : Tout</option>
+                        <option value="done">Statut : Fait</option>
+                        <option value="todo">Statut : À faire</option>
                     </select>
                 `;
                 div.querySelector('select').addEventListener('change', function(e) {
@@ -196,11 +205,22 @@
 
 
         // VARIABLES GLOBALES
-        let streetsLayer = L.layerGroup().addTo(map); 
+        // --- MODIFICATION : On sépare les groupes pour les cases à cocher ---
+        let streetsGroup = L.layerGroup().addTo(map);
+        let panneauxGroup = L.layerGroup().addTo(map);
+        
         let allLayersList = []; 
         let communesPolygons = null;
         let totalStreetsCount = 0;
         let latestFirebaseData = {}; 
+
+        // --- AJOUT DU CONTROLE DE CALQUES (Cases à cocher) ---
+        const overlays = {
+            "Rues": streetsGroup,
+            "Panneaux": panneauxGroup
+        };
+        L.control.layers(null, overlays, { position: 'topright', collapsed: false }).addTo(map);
+
 
         function sanitizeId(id) {
             if (!id) return "inconnu_" + Math.random().toString(36).substr(2, 9);
@@ -241,9 +261,11 @@
                     
                     // --- INFOBULLE COMBINÉE ---
                     const infoText = `
-                        <strong>${panneau.colA}</strong><br>
-                        ${panneau.colB}<br>
-                        <em>${panneau.colC}</em>
+                        <div style="text-align:left;">
+                            <strong style="font-size:15px; display:block; margin-bottom:5px;">${panneau.colA}</strong>
+                            <span style="display:block; margin-bottom:5px;">${panneau.colB}</span>
+                            <em style="color:#666; display:block; border-top:1px solid #ccc; padding-top:5px;">${panneau.colC}</em>
+                        </div>
                     `;
                     marker.bindTooltip(infoText, { direction: 'top', offset: [0, -10], opacity: 0.95 });
 
@@ -327,7 +349,10 @@
         }
 
         function updateMapDisplay() {
-            streetsLayer.clearLayers();
+            // On vide les deux groupes
+            streetsGroup.clearLayers();
+            panneauxGroup.clearLayers();
+            
             let doneCount = 0;
 
             allLayersList.forEach(layer => {
@@ -350,14 +375,19 @@
                     });
                 }
 
-                // Filtrage
-                let shouldShow = false;
-                if (currentFilter === 'all') shouldShow = true;
-                else if (currentFilter === 'done' && isDone) shouldShow = true;
-                else if (currentFilter === 'todo' && !isDone) shouldShow = true;
+                // Filtrage STATUT (Fait/Pas fait)
+                let matchesStatus = false;
+                if (currentFilter === 'all') matchesStatus = true;
+                else if (currentFilter === 'done' && isDone) matchesStatus = true;
+                else if (currentFilter === 'todo' && !isDone) matchesStatus = true;
 
-                if (shouldShow) {
-                    streetsLayer.addLayer(layer);
+                if (matchesStatus) {
+                    // DISTRIBUTION DANS LES BONS GROUPES
+                    if (layer.isPanneau) {
+                        panneauxGroup.addLayer(layer);
+                    } else {
+                        streetsGroup.addLayer(layer);
+                    }
                 }
             });
 
