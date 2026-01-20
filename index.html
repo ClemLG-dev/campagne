@@ -62,7 +62,7 @@
             border-radius: 6px !important; z-index: 9000 !important;
         }
 
-        /* --- NOUVEAU : INFOBULLES RUES (PETITES) --- */
+        /* --- INFOBULLES RUES (PETITES) --- */
         .street-tooltip {
             background: rgba(255, 255, 255, 0.95);
             border: 1px solid #333;
@@ -367,7 +367,21 @@
             L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
-                    const streetName = feature.properties.name || "Rue sans nom";
+                    // --- GESTION INTELLIGENTE DU NOM ---
+                    const props = feature.properties;
+                    let streetName = "Voie sans nom";
+
+                    // 1. Essayer le nom
+                    if (props.name) {
+                        streetName = props.name;
+                        // Si on a aussi une référence (ex: D12), on l'ajoute
+                        if (props.ref) streetName += " (" + props.ref + ")";
+                    } 
+                    // 2. Si pas de nom, essayer la ref (ex: D74)
+                    else if (props.ref) {
+                        streetName = "Route " + props.ref;
+                    }
+
                     let rawId = feature.id; 
                     if (!rawId) rawId = "no_id_" + Math.random().toString(36).substr(2, 9);
                     const uniqueId = sanitizeId(rawId);
@@ -375,7 +389,6 @@
                     layer.streetId = uniqueId;
                     
                     // --- INFOBULLE RUE (SUIVEUSE) ---
-                    // Ajout du nom de rue au survol qui suit la souris
                     layer.bindTooltip(streetName, { sticky: true, className: 'street-tooltip' });
 
                     layer.on('click', function(e) {
