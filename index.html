@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Suivi des actions - Loire-Authion Autrement</title>
     
+    <link rel="icon" href="logo.jpg" type="image/jpeg">
+    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
     
@@ -19,19 +21,22 @@
         .legend-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; display: inline-block; }
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; transition: opacity 0.5s ease; }
         .loading-overlay.hidden { opacity: 0; pointer-events: none; }
-        .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-bottom: 10px !important; }
         .geoloc-icon { width: 20px; height: 20px; fill: #333; }
         .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
         .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
+        
+        /* STYLE DU FILTRE */
+        .custom-filter select {
+            pointer-events: auto;
+            background: white; border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px;
+            cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        }
+        
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
 
-        /* NOUVEAU : STYLE DE L'ECRAN DE CONNEXION */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #2c3e50; z-index: 100000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: white;
-        }
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #2c3e50; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
     </style>
 </head>
 <body>
@@ -90,26 +95,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // --- MOT DE PASSE (MODIFIEZ LE ICI) ---
-        const MOT_DE_PASSE = "clément";
-
-        // --- GESTION DU MOT DE PASSE ---
-        window.checkPassword = function() {
-            const input = document.getElementById('password-input').value;
-            if (input === MOT_DE_PASSE) {
-                document.getElementById('login-screen').style.display = 'none';
-                localStorage.setItem('map_auth', 'true'); // On s'en souvient
-            } else {
-                document.getElementById('login-error').style.display = 'block';
-            }
-        };
-
-        // Vérification automatique au démarrage
-        if (localStorage.getItem('map_auth') === 'true') {
-            document.getElementById('login-screen').style.display = 'none';
-        }
-
-        // --- CONFIGURATION FIREBASE ---
+        // CONFIGURATION
+        const MOT_DE_PASSE = "loire2026";
         const firebaseConfig = {
             apiKey: "AIzaSyDV11Ne09SvKOkyti5EfjRM8UYmwlpqhGA",
             authDomain: "suivi-actions-loire-authion.firebaseapp.com",
@@ -119,30 +106,38 @@
             messagingSenderId: "693650330058",
             appId: "1:693650330058:web:42f3c6cbbfa0b2366fff33"
         };
-
-        let db;
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getDatabase(app);
-            console.log("✅ Firebase connecté.");
-        } catch (e) {
-            console.error("Erreur Firebase:", e);
-        }
-
-        const COLOR_TODO = "#dc3545"; 
-        const COLOR_DONE = "#28a745"; 
-        const OPACITY_TODO = 0.4; 
-        const OPACITY_DONE = 0.8;
-
         const OVERPASS_SERVERS = [
             "https://overpass-api.de/api/interpreter",
             "https://lz4.overpass-api.de/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter"
         ];
+        const COLOR_TODO = "#dc3545"; 
+        const COLOR_DONE = "#28a745"; 
+        const OPACITY_TODO = 0.4; 
+        const OPACITY_DONE = 0.8;
 
+        // AUTHENTIFICATION
+        window.checkPassword = function() {
+            if (document.getElementById('password-input').value === MOT_DE_PASSE) {
+                document.getElementById('login-screen').style.display = 'none';
+                localStorage.setItem('map_auth', 'true'); 
+            } else { document.getElementById('login-error').style.display = 'block'; }
+        };
+        if (localStorage.getItem('map_auth') === 'true') document.getElementById('login-screen').style.display = 'none';
+
+        // FIREBASE
+        let db;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            console.log("✅ Firebase connecté.");
+        } catch (e) { console.error("Erreur Firebase:", e); }
+
+        // MAP SETUP
         const map = L.map('map').setView([47.44, -0.40], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
 
+        // CONTROLES
         const GeolocControl = L.Control.extend({
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-control-geoloc leaflet-bar leaflet-control');
@@ -154,10 +149,36 @@
         map.addControl(new GeolocControl({ position: 'topleft' }));
         map.on('locationfound', function(e) { L.marker(e.latlng).addTo(map).bindPopup("Vous êtes ici").openPopup(); });
 
-        let streetsLayer = null; 
+        // --- NOUVEAU : CONTROLE FILTRE ---
+        let currentFilter = 'all'; // 'all', 'done', 'todo'
+        const FilterControl = L.Control.extend({
+            onAdd: function(map) {
+                const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-filter');
+                div.innerHTML = `
+                    <select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;">
+                        <option value="all">Afficher : Tout</option>
+                        <option value="done">Uniquement : Fait</option>
+                        <option value="todo">Uniquement : À faire</option>
+                    </select>
+                `;
+                // Gestion du changement de filtre
+                div.querySelector('select').addEventListener('change', function(e) {
+                    currentFilter = e.target.value;
+                    updateMapDisplay(); // On rafraîchit l'affichage
+                });
+                return div;
+            }
+        });
+        map.addControl(new FilterControl({ position: 'topleft' }));
+
+
+        // VARIABLES GLOBALES
+        let streetsLayer = L.layerGroup().addTo(map); // Le groupe affiché sur la carte
+        let allLayersList = []; // Liste cachée de TOUTES les couches (pour pouvoir filtrer)
         let communesPolygons = null;
         let totalStreetsCount = 0;
-        
+        let latestFirebaseData = {}; // On stocke les données pour filtrer sans rappeler la base
+
         function sanitizeId(id) {
             if (!id) return "inconnu_" + Math.random().toString(36).substr(2, 9);
             return String(id).toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -179,15 +200,11 @@
 
                 listenToDatabaseUpdates();
                 document.getElementById('loading').classList.add('hidden');
-            } catch (error) {
-                alert("Erreur Init : " + error.message);
-            }
+            } catch (error) { alert("Erreur Init : " + error.message); }
         }
 
         async function loadStreetsRobust(bounds) {
             const s = bounds.getSouth(); const w = bounds.getWest(); const n = bounds.getNorth(); const e = bounds.getEast();
-            
-            // Requete Overpass large
             const query = `[out:json][timeout:180][maxsize:1073741824];(way["highway"~"^(residential|living_street|tertiary|unclassified|service|secondary)$"](${s},${w},${n},${e}););out geom;`;
 
             let osmData = null;
@@ -200,16 +217,10 @@
                     const hostname = new URL(serverUrl).hostname;
                     statusLabel.innerText = `Serveur : ${hostname}...`;
                     const response = await fetch(serverUrl, { method: "POST", body: "data=" + encodeURIComponent(query) });
-                    if (response.ok) { 
-                        osmData = await response.json(); 
-                        success = true; 
-                        usedServer = hostname;
-                        break; 
-                    }
+                    if (response.ok) { osmData = await response.json(); success = true; usedServer = hostname; break; }
                 } catch (err) {}
             }
             if (!success) throw new Error("Serveurs OSM indisponibles.");
-
             document.getElementById('source-display').innerText = "Source: " + usedServer;
 
             const rawStreets = osmtogeojson(osmData);
@@ -224,11 +235,12 @@
 
             totalStreetsCount = filteredFeatures.length;
 
-            streetsLayer = L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
+            // ON CREE LES COUCHES MAIS ON NE LES AJOUTE PAS ENCORE AU GROUPE
+            // On les stocke dans allLayersList
+            L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
                     const streetName = feature.properties.name || "Rue sans nom";
-                    
                     let rawId = feature.id; 
                     if (!rawId) rawId = "no_id_" + Math.random().toString(36).substr(2, 9);
                     const uniqueId = sanitizeId(rawId);
@@ -238,44 +250,67 @@
                     layer.on('click', function(e) {
                         const isDone = (e.target.options.color === COLOR_DONE);
                         const newState = isDone ? "todo" : "done";
-
                         set(ref(db, 'rues/' + uniqueId), {
-                            status: newState,
-                            name: streetName,
-                            updatedAt: Date.now()
-                        }).catch(err => {
-                            console.error(err);
-                            alert("Erreur écriture : " + err.message);
-                        });
+                            status: newState, name: streetName, updatedAt: Date.now()
+                        }).catch(err => { alert("Erreur écriture : " + err.message); });
                     });
 
                     layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
                     layer.on('mouseout', function(e) { e.target.setStyle({ weight: 6 }); });
+
+                    // AJOUT A LA LISTE GLOBALE
+                    allLayersList.push(layer);
                 }
-            }).addTo(map);
+            });
+            // Pas de .addTo(map) ici, ce sera géré par updateMapDisplay
+        }
+
+        // --- NOUVELLE FONCTION CENTRALE D'AFFICHAGE ---
+        function updateMapDisplay() {
+            // 1. Nettoyer la carte
+            streetsLayer.clearLayers();
+
+            let doneCount = 0;
+
+            // 2. Parcourir toutes les rues connues
+            allLayersList.forEach(layer => {
+                const streetData = latestFirebaseData[layer.streetId];
+                const isDone = (streetData && streetData.status === "done");
+
+                // Calcul des stats (sur la totalité, peu importe le filtre)
+                if (isDone) doneCount++;
+
+                // Définition de la couleur
+                if (isDone) {
+                    layer.setStyle({ color: COLOR_DONE, opacity: OPACITY_DONE });
+                } else {
+                    layer.setStyle({ color: COLOR_TODO, opacity: OPACITY_TODO });
+                }
+
+                // 3. Appliquer le FILTRE
+                let shouldShow = false;
+                if (currentFilter === 'all') shouldShow = true;
+                else if (currentFilter === 'done' && isDone) shouldShow = true;
+                else if (currentFilter === 'todo' && !isDone) shouldShow = true;
+
+                // 4. Ajouter à la carte si ça matche
+                if (shouldShow) {
+                    streetsLayer.addLayer(layer);
+                }
+            });
+
+            // 5. Mise à jour barre de progression (Toujours sur le global)
+            const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
+            document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} segments faits`;
+            document.getElementById('stats-percent').innerText = `${percent}%`;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
         }
 
         function listenToDatabaseUpdates() {
             onValue(ref(db, 'rues'), (snapshot) => {
-                const data = snapshot.val() || {};
-                let doneCount = 0;
-                
-                if (streetsLayer) {
-                    streetsLayer.eachLayer(layer => {
-                        const streetData = data[layer.streetId];
-                        if (streetData && streetData.status === "done") {
-                            layer.setStyle({ color: COLOR_DONE, opacity: OPACITY_DONE });
-                            doneCount++; 
-                        } else {
-                            layer.setStyle({ color: COLOR_TODO, opacity: OPACITY_TODO });
-                        }
-                    });
-
-                    const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
-                    document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} segments faits`;
-                    document.getElementById('stats-percent').innerText = `${percent}%`;
-                    document.getElementById('progress-bar').style.width = `${percent}%`;
-                }
+                // On sauvegarde les données et on lance l'affichage
+                latestFirebaseData = snapshot.val() || {};
+                updateMapDisplay();
             });
         }
 
