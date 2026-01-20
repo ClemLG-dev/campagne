@@ -53,6 +53,10 @@
         .leaflet-control-layers { border: 2px solid rgba(0,0,0,0.4) !important; border-radius: 4px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important; margin-left: 10px !important; }
         .leaflet-control-layers-expanded { padding: 8px !important; font-size: 13px !important; font-weight: bold !important; color: #333 !important; background: white !important; }
 
+        /* --- SUPPRESSION DU CARRÉ NOIR AU CLIC (FOCUS) --- */
+        path.leaflet-interactive:focus { outline: none; }
+        .leaflet-interactive { -webkit-tap-highlight-color: transparent; }
+
         /* --- INFOBULLES PANNEAUX (GROSSES) --- */
         .panneau-tooltip { 
             font-size: 14px !important; font-family: sans-serif !important; border: 1px solid #666 !important; 
@@ -215,7 +219,10 @@
         } catch (e) { console.error("Erreur Firebase:", e); }
 
         // MAP SETUP
-        const map = L.map('map').setView([47.44, -0.40], 13);
+        const map = L.map('map', {
+            doubleClickZoom: false // EMPECHE LE ZOOM CLIC/DOUBLE-CLIC
+        }).setView([47.44, -0.40], 13);
+        
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
 
         // =========================================================
@@ -368,7 +375,7 @@
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
                 onEachFeature: function(feature, layer) {
                     
-                    // --- CORRECTION : Récupération des tags OSM ---
+                    // --- CORRECTION ETROITE : Récupération des tags OSM ---
                     const props = feature.properties;
                     // Parfois osmtogeojson stocke les tags directement dans properties, parfois dans properties.tags
                     const tags = props.tags || props;
