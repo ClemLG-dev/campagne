@@ -13,21 +13,22 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
         
-        /* HEADER RESPONSIVE */
+        /* HEADER */
         #header { height: 70px; background: #2c3e50; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 2000; position: relative; transition: all 0.3s; }
         .stats-container { width: 300px; text-align: right; margin-left: 15px; }
         .progress { height: 10px; background-color: #4a6278; }
         
+        /* CARTE */
         #map { height: calc(100vh - 70px); width: 100%; background: #e5e5e5; }
         
-        /* --- BARRE DE RECHERCHE RESPONSIVE --- */
-        #search-container { position: absolute; top: 85px; left: 50%; transform: translateX(-50%); width: 300px; z-index: 1000; transition: all 0.3s; }
-        #search-input { width: 100%; padding: 10px; border-radius: 20px; border: 2px solid rgba(0,0,0,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.1); outline: none; font-size: 16px; /* 16px empèche le zoom auto sur iPhone */ }
+        /* BARRE DE RECHERCHE */
+        #search-container { position: absolute; top: 85px; left: 50%; transform: translateX(-50%); width: 300px; z-index: 1000; transition: top 0.3s ease; }
+        #search-input { width: 100%; padding: 10px; border-radius: 20px; border: 2px solid rgba(0,0,0,0.2); box-shadow: 0 4px 6px rgba(0,0,0,0.1); outline: none; font-size: 16px; background: white; }
         #search-results { background: white; margin-top: 5px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.2); display: none; max-height: 300px; overflow-y: auto; }
         .search-result-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
         .search-result-item:hover { background-color: #f8f9fa; }
 
-        /* --- LEGENDE RETRACTABLE --- */
+        /* LEGENDE */
         .legend-container { position: absolute; bottom: 30px; right: 10px; z-index: 1000; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2); overflow: hidden; width: 200px; transition: all 0.3s ease; }
         .legend-header { padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; align-items: center; user-select: none; }
         .legend-content { padding: 15px; }
@@ -39,7 +40,7 @@
         .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(44, 62, 80, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; color: white; transition: opacity 0.5s ease; }
         .loading-overlay.hidden { opacity: 0; pointer-events: none; }
         
-        /* CONTROLES */
+        /* CONTROLES CARTE */
         .leaflet-left .leaflet-control { margin-bottom: 10px; }
         .leaflet-control-geoloc { background-color: white; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .geoloc-icon { width: 20px; height: 20px; fill: #333; }
@@ -57,12 +58,10 @@
         .panneau-tooltip { font-size: 14px !important; font-family: sans-serif !important; border: 1px solid #666 !important; min-width: 250px !important; max-width: 400px !important; white-space: normal !important; padding: 10px !important; line-height: 1.4 !important; background-color: white !important; color: black !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important; opacity: 1 !important; border-radius: 6px !important; z-index: 9000 !important; }
         .street-tooltip { background: rgba(255, 255, 255, 0.95); border: 1px solid #333; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.4); font-weight: bold; font-size: 12px; padding: 2px 6px; color: #333; }
         
-        /* STYLE DES NOTES */
         .note-tooltip { background: #6f42c1; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-weight: bold; }
         .note-popup .leaflet-popup-content-wrapper { background: #f8f9fa; border-radius: 8px; }
         .btn-delete-note { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; width: 100%; margin-top: 5px; }
 
-        /* STYLE MARQUEUR GPS PULSANT */
         .user-location-marker { background-color: #4285F4; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
 
@@ -80,18 +79,20 @@
             #stats-text { font-size: 0.7rem; }
             #map { height: calc(100vh - 60px); }
 
-            /* 2. Barre de recherche plus large et plus basse */
-            #search-container { width: 85%; top: 70px; }
+            /* 2. Barre de recherche : En haut */
+            #search-container { width: 90%; top: 70px; }
             
-            /* 3. Masquer les boutons de zoom (les doigts suffisent) */
+            /* 3. Masquer le zoom bouton */
             .leaflet-control-zoom { display: none; }
 
-            /* 4. Légende moins large */
+            /* 4. Légende discrète */
             .legend-container { width: 160px; bottom: 20px; right: 5px; }
             .legend-content { padding: 10px; font-size: 12px; }
             
-            /* 5. Ajustement des contrôles gauche */
-            .leaflet-top.leaflet-left { top: 60px; } /* Décaler pour ne pas gêner la recherche */
+            /* 5. FIX CRUCIAL : On descend les contrôles (Boutons) BEAUCOUP plus bas */
+            /* Pour laisser la place à la barre de recherche sans chevauchement */
+            .leaflet-top { top: 130px; transition: top 0.3s; } 
+            .leaflet-control-layers { margin-top: 0 !important; }
         }
     </style>
 </head>
@@ -250,7 +251,7 @@
             if (userMarker) { map.removeLayer(userMarker); }
             const gpsIcon = L.divIcon({ className: 'user-location-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
             userMarker = L.marker(e.latlng, {icon: gpsIcon}).addTo(map);
-            userMarker.bindPopup("Vous êtes ici").openPopup();
+            // Suppression du popup "Vous êtes ici"
         });
 
         const FilterControl = L.Control.extend({
