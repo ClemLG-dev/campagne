@@ -26,12 +26,18 @@
         .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
         .user-location-marker { width: 15px; height: 15px; background-color: #4285F4; border: 2px solid white; border-radius: 50%; animation: pulse 2s infinite; }
         
-        /* STYLE DU FILTRE */
         .custom-filter select {
-            pointer-events: auto;
-            background: white; border: 2px solid rgba(0,0,0,0.2);
+            pointer-events: auto; background: white; border: 2px solid rgba(0,0,0,0.2);
             border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px;
             cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        }
+        
+        /* Style amélioré pour l'infobulle */
+        .leaflet-tooltip { 
+            font-size: 13px; border: 1px solid #333; 
+            max-width: 250px; white-space: normal; 
+            padding: 8px; line-height: 1.4;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); } }
@@ -79,6 +85,8 @@
         <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.0); border: 2px solid blue;"></span><span>Frontières</span></div>
         <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>À faire</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Fait</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #dc3545; border: 2px solid white; border-radius: 50%;"></span><span>Panneau (À faire)</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #28a745; border: 2px solid white; border-radius: 50%;"></span><span>Panneau (Fait)</span></div>
     </div>
     
     <div id="loading" class="loading-overlay">
@@ -95,8 +103,25 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // CONFIGURATION
+        // =========================================================
+        // 1. CONFIGURATION & DONNÉES
+        // =========================================================
+        
         const MOT_DE_PASSE = "loire2026";
+        
+        // --- DONNÉES EXTRAITES DU FICHIER EXCEL ---
+        const LISTE_PANNEAUX = [
+            { lat: 47.455777409985004, lng: -0.39837537609926976, colA: "Maison des loisirs", colB: "Rue du parc 49800 Loire-Authion", colC: "Sous le préau de la maison des loisirs" },
+            { lat: 47.47820216373718, lng: -0.39149954760158634, colA: "Lieu-dit Ridereau", colB: "1748-1766 Rte de Ridereau 49800 Loire-Authion", colC: "Croisement des routes" },
+            { lat: 47.505927278068725, lng: -0.4094311644596668, colA: "Lieu-dit Les Vigneaux", colB: "1291 La Faussarderie 49800 Loire-Authion", colC: "Bord de route en face d'une habitation" },
+            { lat: 47.50293533205733, lng: -0.3171753895165719, colA: "Stade / Salle des Sports", colB: "Rue de la Béloinière 49140 Loire-Authion", colC: "Parking du stade" },
+            { lat: 47.44557950645388, lng: -0.4118279205928237, colA: "Mairie / Centre", colB: "Place de l'Hôtel de Ville 49800 Loire-Authion", colC: "Sur la droite de la mairie, derrière les buissons" },
+            { lat: 47.471563744222365, lng: -0.3503568272932749, colA: "Logis des Moines", colB: "Place du Logis des Moines 49630 Loire-Authion", colC: "Sur le parking" },
+            { lat: 47.42059427312846, lng: -0.3912382730538779, colA: "Église Saint-Aubin", colB: "Place de l'Église 49800 Loire-Authion", colC: "Sur la gauche de l'église" },
+            { lat: 47.41939389040162, lng: -0.4352542358182484, colA: "École / Mairie", colB: "37 Rue Ligérienne 49800 Loire-Authion", colC: "Sur le parking" },
+            { lat: 47.41063925701801, lng: -0.320567301278285, colA: "Salle des Fêtes", colB: "Place du 19 Mars 1962 49250 Loire-Authion", colC: "En face de la mairie ou près du parking attenant" }
+        ];
+
         const firebaseConfig = {
             apiKey: "AIzaSyDV11Ne09SvKOkyti5EfjRM8UYmwlpqhGA",
             authDomain: "suivi-actions-loire-authion.firebaseapp.com",
@@ -190,9 +215,51 @@
                 const textData = await response.text();
                 communesPolygons = (textData.trim().startsWith('<')) ? osmtogeojson(new DOMParser().parseFromString(textData, "text/xml")) : JSON.parse(textData);
                 
-                // ICI : fillOpacity: 0 POUR TRANSPARENCE TOTALE
-                const boundaryLayer = L.geoJSON(communesPolygons, { style: { color: "blue", weight: 2, fillOpacity: 0, interactive: false } }).addTo(map);
+                // TRANSPARENCE FOND
+                const boundaryLayer = L.geoJSON(communesPolygons, { 
+                    style: function(feature) {
+                        return { color: "blue", weight: 2, fillColor: "blue", fillOpacity: 0, interactive: false };
+                    }
+                }).addTo(map);
                 map.fitBounds(boundaryLayer.getBounds());
+
+                // --- INTEGRATION DES PANNEAUX ---
+                LISTE_PANNEAUX.forEach(panneau => {
+                    const panneauId = "panneau_" + panneau.lat.toString().replace('.','_') + "_" + panneau.lng.toString().replace('.','_');
+                    
+                    const marker = L.circleMarker([panneau.lat, panneau.lng], {
+                        radius: 10,
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 1,
+                        color: "white", 
+                        fillColor: COLOR_TODO 
+                    });
+
+                    marker.streetId = panneauId;
+                    marker.isPanneau = true; 
+                    
+                    // --- INFOBULLE COMBINÉE ---
+                    const infoText = `
+                        <strong>${panneau.colA}</strong><br>
+                        ${panneau.colB}<br>
+                        <em>${panneau.colC}</em>
+                    `;
+                    marker.bindTooltip(infoText, { direction: 'top', offset: [0, -10], opacity: 0.95 });
+
+                    marker.on('click', function(e) {
+                        const isDone = (e.target.options.fillColor === COLOR_DONE);
+                        const newState = isDone ? "todo" : "done";
+                        
+                        set(ref(db, 'rues/' + panneauId), {
+                            status: newState,
+                            name: panneau.colA + " (" + panneau.colB + ")",
+                            updatedAt: Date.now()
+                        }).catch(err => { alert("Erreur écriture : " + err.message); });
+                    });
+
+                    allLayersList.push(marker);
+                });
 
                 document.getElementById('loading-msg').innerText = "Chargement des rues...";
                 await loadStreetsRobust(boundaryLayer.getBounds());
@@ -209,12 +276,11 @@
             let osmData = null;
             let success = false;
             let usedServer = "";
-            const statusLabel = document.getElementById('server-status');
-
+            
             for (const serverUrl of OVERPASS_SERVERS) {
                 try {
                     const hostname = new URL(serverUrl).hostname;
-                    statusLabel.innerText = `Serveur : ${hostname}...`;
+                    document.getElementById('server-status').innerText = `Serveur : ${hostname}...`;
                     const response = await fetch(serverUrl, { method: "POST", body: "data=" + encodeURIComponent(query) });
                     if (response.ok) { osmData = await response.json(); success = true; usedServer = hostname; break; }
                 } catch (err) {}
@@ -232,7 +298,7 @@
                 return isInside;
             });
 
-            totalStreetsCount = filteredFeatures.length;
+            totalStreetsCount = filteredFeatures.length; 
 
             L.geoJSON({type: "FeatureCollection", features: filteredFeatures}, {
                 style: { color: COLOR_TODO, weight: 6, opacity: OPACITY_TODO, lineCap: 'round' },
@@ -268,14 +334,23 @@
                 const streetData = latestFirebaseData[layer.streetId];
                 const isDone = (streetData && streetData.status === "done");
 
-                if (isDone) doneCount++;
+                // Comptage (On exclut les panneaux du pourcentage "rues")
+                if (isDone && !layer.isPanneau) doneCount++;
 
-                if (isDone) {
-                    layer.setStyle({ color: COLOR_DONE, opacity: OPACITY_DONE });
+                // Application du style
+                if (layer.isPanneau) {
+                    layer.setStyle({
+                        fillColor: isDone ? COLOR_DONE : COLOR_TODO,
+                        color: "white" 
+                    });
                 } else {
-                    layer.setStyle({ color: COLOR_TODO, opacity: OPACITY_TODO });
+                    layer.setStyle({ 
+                        color: isDone ? COLOR_DONE : COLOR_TODO, 
+                        opacity: isDone ? OPACITY_DONE : OPACITY_TODO 
+                    });
                 }
 
+                // Filtrage
                 let shouldShow = false;
                 if (currentFilter === 'all') shouldShow = true;
                 else if (currentFilter === 'done' && isDone) shouldShow = true;
