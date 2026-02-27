@@ -167,6 +167,7 @@
             <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>Rue à faire</span></div>
             <div class="legend-item"><span class="legend-color" style="background: #fd7e14;"></span><span>En cours / À repasser</span></div>
             <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Rue faite</span></div>
+            <div class="legend-item"><span class="legend-color" style="background: #0d6efd;"></span><span>Boîtée</span></div>
             <hr style="margin: 8px 0;">
             <div class="legend-item"><span class="legend-color" style="background: #dc3545; border: 2px solid white; border-radius: 50%;"></span><span>Panneau à faire</span></div>
             <div class="legend-item"><span class="legend-color" style="background: #28a745; border: 2px solid white; border-radius: 50%;"></span><span>Panneau fait</span></div>
@@ -212,7 +213,7 @@
             appId: "1:693650330058:web:42f3c6cbbfa0b2366fff33"
         };
         const OVERPASS_SERVERS = [ "https://overpass-api.de/api/interpreter", "https://lz4.overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.privatenet.de/api/interpreter" ];
-        const COLOR_TODO = "#dc3545"; const COLOR_DOING = "#fd7e14"; const COLOR_DONE = "#28a745"; const OPACITY_TODO = 0.4; const OPACITY_DONE = 0.8;
+        const COLOR_TODO = "#dc3545"; const COLOR_DOING = "#fd7e14"; const COLOR_DONE = "#28a745"; const COLOR_BOITEE = "#0d6efd"; const OPACITY_TODO = 0.4; const OPACITY_DONE = 0.8;
 
         window.toggleLegend = function() {
             const legend = document.getElementById('legend');
@@ -283,7 +284,7 @@
         const FilterControl = L.Control.extend({
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-filter');
-                div.innerHTML = `<select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;"><option value="all">Statut : Tout</option><option value="done">Statut : Fait</option><option value="doing">Statut : En cours</option><option value="todo">Statut : À faire</option></select>`;
+                div.innerHTML = `<select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;"><option value="all">Statut : Tout</option><option value="done">Statut : Fait</option><option value="boitee">Statut : Boîtée</option><option value="doing">Statut : En cours</option><option value="todo">Statut : À faire</option></select>`;
                 div.querySelector('select').addEventListener('change', function(e) { currentFilter = e.target.value; updateMapDisplay(); }); return div;
             }
         });
@@ -384,7 +385,7 @@
                     layer.on('click', function(e) {
                         const currentStatus = (latestFirebaseData[uniqueId] && latestFirebaseData[uniqueId].status) || 'todo';
                         let nextStatus = 'todo';
-                        if (currentStatus === 'todo') nextStatus = 'doing'; else if (currentStatus === 'doing') nextStatus = 'done'; else if (currentStatus === 'done') nextStatus = 'todo';
+                        if (currentStatus === 'todo') nextStatus = 'doing'; else if (currentStatus === 'doing') nextStatus = 'done'; else if (currentStatus === 'done') nextStatus = 'boitee'; else if (currentStatus === 'boitee') nextStatus = 'todo';
                         set(ref(db, 'rues/' + uniqueId), { status: nextStatus, name: streetName, updatedAt: Date.now() });
                     });
                     layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
@@ -400,11 +401,11 @@
             allLayersList.forEach(layer => {
                 const streetData = latestFirebaseData[layer.streetId];
                 const status = (streetData && streetData.status) ? streetData.status : 'todo';
-                if (status === 'done' && !layer.isPanneau) doneCount++;
+                if ((status === 'done' || status === 'boitee') && !layer.isPanneau) doneCount++;
                 if (layer.isPanneau) { layer.setStyle({ fillColor: status === 'done' ? COLOR_DONE : COLOR_TODO, color: "white" }); } 
                 else {
                     let color = COLOR_TODO; let opacity = OPACITY_TODO;
-                    if (status === 'done') { color = COLOR_DONE; opacity = OPACITY_DONE; } else if (status === 'doing') { color = COLOR_DOING; opacity = OPACITY_DONE; }
+                    if (status === 'done') { color = COLOR_DONE; opacity = OPACITY_DONE; } else if (status === 'doing') { color = COLOR_DOING; opacity = OPACITY_DONE; } else if (status === 'boitee') { color = COLOR_BOITEE; opacity = OPACITY_DONE; }
                     layer.setStyle({ color: color, opacity: opacity });
                 }
                 let matchesStatus = false;
