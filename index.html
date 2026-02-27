@@ -15,9 +15,9 @@
         body, html { 
             margin: 0; padding: 0; 
             height: 100%; width: 100%; 
-            position: fixed; /* Cloue la page à l'écran */
-            overflow: hidden; /* Interdit tout dépassement */
-            overscroll-behavior: none; /* Empêche l'effet élastique sur iOS */
+            position: fixed; 
+            overflow: hidden; 
+            overscroll-behavior: none; 
             font-family: sans-serif; 
             background-color: #2c3e50; 
         }
@@ -70,6 +70,9 @@
         .source-info { position: absolute; bottom: 5px; left: 5px; font-size: 10px; color: #666; z-index: 1000; background: rgba(255,255,255,0.7); padding: 2px 5px; border-radius: 3px; pointer-events: none; }
         
         .custom-filter select { pointer-events: auto; background: white; border: 2px solid rgba(0,0,0,0.4); border-radius: 4px; padding: 5px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+        .custom-mode { background: white; border: 2px solid rgba(0,0,0,0.4); border-radius: 4px; padding: 8px 10px; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.4); pointer-events: auto; }
+        .custom-mode label { margin: 0; display: block; cursor: pointer; font-weight: bold; }
+        .custom-mode input { margin-right: 5px; cursor: pointer; }
 
         .leaflet-control-layers { border: 2px solid rgba(0,0,0,0.4) !important; border-radius: 4px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important; margin-left: 10px !important; }
         .leaflet-control-layers-expanded { padding: 8px !important; font-size: 13px !important; font-weight: bold !important; color: #333 !important; background: white !important; }
@@ -94,25 +97,19 @@
         /* --- OPTIMISATIONS MOBILE & TABLETTE --- */
         /* ========================================= */
         @media (max-width: 768px) {
-            /* 1. Header plus compact */
             #header { height: 60px; padding: 0 10px; }
             #header img { height: 35px; }
             #header h1 { font-size: 0.8rem; line-height: 1.1; white-space: normal; }
             .stats-container { width: 110px; margin-left: 8px; }
             #stats-text { font-size: 0.7rem; }
             
-            /* 2. Ajustement Carte */
             #map { top: 60px; }
-
-            /* 3. Barre de recherche + basse */
             #search-container { width: 90%; top: 70px; }
             
-            /* 4. UI Simplifiée */
             .leaflet-control-zoom { display: none; }
             .legend-container { width: 160px; bottom: 20px; right: 5px; }
             .legend-content { padding: 10px; font-size: 12px; }
             
-            /* 5. BOUTONS DESCENDUS (Anti-chevauchement) */
             .leaflet-top { top: 130px; transition: top 0.3s; } 
             .leaflet-control-layers { margin-top: 0 !important; }
         }
@@ -164,10 +161,9 @@
         </div>
         <div class="legend-content">
             <div class="legend-item"><span class="legend-color" style="background: rgba(0,0,255,0.0); border: 2px solid blue;"></span><span>Frontières</span></div>
-            <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span>Rue à faire</span></div>
-            <div class="legend-item"><span class="legend-color" style="background: #fd7e14;"></span><span>En cours / À repasser</span></div>
-            <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span>Rue faite</span></div>
-            <div class="legend-item"><span class="legend-color" style="background: #0d6efd;"></span><span>Boîtée</span></div>
+            <div class="legend-item"><span class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></span><span id="legend-todo-text">Rue à faire</span></div>
+            <div class="legend-item"><span class="legend-color" style="background: #fd7e14;"></span><span id="legend-doing-text">En cours / À repasser</span></div>
+            <div class="legend-item"><span class="legend-color" style="background: #28a745;"></span><span id="legend-done-text">Rue faite</span></div>
             <hr style="margin: 8px 0;">
             <div class="legend-item"><span class="legend-color" style="background: #dc3545; border: 2px solid white; border-radius: 50%;"></span><span>Panneau à faire</span></div>
             <div class="legend-item"><span class="legend-color" style="background: #28a745; border: 2px solid white; border-radius: 50%;"></span><span>Panneau fait</span></div>
@@ -187,7 +183,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, remove, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, remove, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         // CONFIGURATION
         const MOT_DE_PASSE = "loire2026";
@@ -213,7 +209,9 @@
             appId: "1:693650330058:web:42f3c6cbbfa0b2366fff33"
         };
         const OVERPASS_SERVERS = [ "https://overpass-api.de/api/interpreter", "https://lz4.overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.privatenet.de/api/interpreter" ];
-        const COLOR_TODO = "#dc3545"; const COLOR_DOING = "#fd7e14"; const COLOR_DONE = "#28a745"; const COLOR_BOITEE = "#0d6efd"; const OPACITY_TODO = 0.4; const OPACITY_DONE = 0.8;
+        const COLOR_TODO = "#dc3545"; const COLOR_DOING = "#fd7e14"; const COLOR_DONE = "#28a745"; const OPACITY_TODO = 0.4; const OPACITY_DONE = 0.8;
+
+        let currentMode = 'pap'; // 'pap' ou 'boitage'
 
         window.toggleLegend = function() {
             const legend = document.getElementById('legend');
@@ -261,12 +259,52 @@
 
         let allLayersList = []; let communesPolygons = null; let totalStreetsCount = 0; let latestFirebaseData = {}; let latestNotesData = {}; let currentFilter = 'all'; 
 
+        // CONTROLE : Choix du Mode
+        const ModeControl = L.Control.extend({
+            onAdd: function(map) {
+                const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-mode');
+                div.innerHTML = `
+                    <div style="margin-bottom: 5px; color: #333;">Action :</div>
+                    <label><input type="radio" name="mapMode" value="pap" checked onchange="switchMode('pap')"> Porte à porte</label>
+                    <label style="margin-top:5px;"><input type="radio" name="mapMode" value="boitage" onchange="switchMode('boitage')"> Boîtage</label>
+                `;
+                L.DomEvent.disableClickPropagation(div);
+                return div;
+            }
+        });
+        map.addControl(new ModeControl({ position: 'topleft' }));
+
+        window.switchMode = function(mode) {
+            currentMode = mode;
+            
+            // Mise à jour de la légende
+            const legendTodo = document.getElementById('legend-todo-text');
+            const legendDoing = document.getElementById('legend-doing-text');
+            const legendDone = document.getElementById('legend-done-text');
+            const filterSelect = document.getElementById('status-filter');
+            
+            if (mode === 'pap') {
+                legendTodo.innerText = 'Rue à faire';
+                legendDoing.innerText = 'En cours / À repasser';
+                legendDone.innerText = 'Rue faite';
+                filterSelect.options[1].text = 'Statut : Fait';
+                filterSelect.options[3].text = 'Statut : À faire';
+            } else {
+                legendTodo.innerText = 'À boîter';
+                legendDoing.innerText = 'En cours de boîtage';
+                legendDone.innerText = 'Boîtée';
+                filterSelect.options[1].text = 'Statut : Boîtée';
+                filterSelect.options[3].text = 'Statut : À boîter';
+            }
+            updateMapDisplay();
+        };
+
         const GeolocControl = L.Control.extend({
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-control-geoloc leaflet-bar leaflet-control');
                 div.innerHTML = `<svg class="geoloc-icon" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>`;
                 div.onclick = function(e) { 
-                    e.stopPropagation(); e.preventDefault(); // IMPORTANT : EMPÊCHE LE SCROLL/FOCUS
+                    e.stopPropagation(); e.preventDefault();
                     map.locate({ setView: true, maxZoom: 16, timeout: 30000, enableHighAccuracy: false }); 
                 }; 
                 return div;
@@ -278,14 +316,14 @@
             if (userMarker) { map.removeLayer(userMarker); }
             const gpsIcon = L.divIcon({ className: 'user-location-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
             userMarker = L.marker(e.latlng, {icon: gpsIcon}).addTo(map);
-            // PAS DE POPUP "VOUS ETES ICI" = PAS DE DÉCALAGE
         });
 
         const FilterControl = L.Control.extend({
             onAdd: function(map) {
                 const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control custom-filter');
-                div.innerHTML = `<select onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;"><option value="all">Statut : Tout</option><option value="done">Statut : Fait</option><option value="boitee">Statut : Boîtée</option><option value="doing">Statut : En cours</option><option value="todo">Statut : À faire</option></select>`;
-                div.querySelector('select').addEventListener('change', function(e) { currentFilter = e.target.value; updateMapDisplay(); }); return div;
+                div.innerHTML = `<select id="status-filter" onmousedown="L.DomEvent.stopPropagation(event)" style="height:30px;"><option value="all">Statut : Tout</option><option value="done">Statut : Fait</option><option value="doing">Statut : En cours</option><option value="todo">Statut : À faire</option></select>`;
+                div.querySelector('select').addEventListener('change', function(e) { currentFilter = e.target.value; updateMapDisplay(); }); 
+                return div;
             }
         });
         map.addControl(new FilterControl({ position: 'topleft' }));
@@ -296,9 +334,7 @@
 
         function handleAddNote(e) {
             const noteText = prompt("Ajouter une note à cet endroit :");
-            if (noteText) {
-                push(ref(db, 'notes'), { lat: e.latlng.lat, lng: e.latlng.lng, text: noteText, timestamp: Date.now() });
-            }
+            if (noteText) { push(ref(db, 'notes'), { lat: e.latlng.lat, lng: e.latlng.lng, text: noteText, timestamp: Date.now() }); }
         }
         map.on('contextmenu', handleAddNote);
         map.on('click', function(e) { if (e.originalEvent.ctrlKey) handleAddNote(e); });
@@ -336,7 +372,8 @@
                     marker.on('click', function(e) {
                         const currentStatus = (latestFirebaseData[panneauId] && latestFirebaseData[panneauId].status) || 'todo';
                         const newState = (currentStatus === 'done') ? "todo" : "done";
-                        set(ref(db, 'rues/' + panneauId), { status: newState, name: panneau.colA + " (" + panneau.colB + ")", updatedAt: Date.now() });
+                        // Utilisation de update() pour ne pas écraser d'autres éventuels champs
+                        update(ref(db, 'rues/' + panneauId), { status: newState, name: panneau.colA + " (" + panneau.colB + ")", updatedAt: Date.now() });
                     });
                     allLayersList.push(marker);
                 });
@@ -382,12 +419,19 @@
                     layer.streetId = uniqueId; layer.streetNameDisplay = streetName;
                     layer.streetNameNormal = streetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                     layer.bindTooltip(streetName, { sticky: true, className: 'street-tooltip' });
+                    
                     layer.on('click', function(e) {
-                        const currentStatus = (latestFirebaseData[uniqueId] && latestFirebaseData[uniqueId].status) || 'todo';
+                        const dbKey = currentMode === 'pap' ? 'status' : 'status_boitage';
+                        const currentStatus = (latestFirebaseData[uniqueId] && latestFirebaseData[uniqueId][dbKey]) || 'todo';
                         let nextStatus = 'todo';
-                        if (currentStatus === 'todo') nextStatus = 'doing'; else if (currentStatus === 'doing') nextStatus = 'done'; else if (currentStatus === 'done') nextStatus = 'boitee'; else if (currentStatus === 'boitee') nextStatus = 'todo';
-                        set(ref(db, 'rues/' + uniqueId), { status: nextStatus, name: streetName, updatedAt: Date.now() });
+                        if (currentStatus === 'todo') nextStatus = 'doing'; 
+                        else if (currentStatus === 'doing') nextStatus = 'done'; 
+                        else if (currentStatus === 'done') nextStatus = 'todo';
+                        
+                        // Enregistrement indépendant du statut selon le mode
+                        update(ref(db, 'rues/' + uniqueId), { [dbKey]: nextStatus, name: streetName, updatedAt: Date.now() });
                     });
+                    
                     layer.on('mouseover', function(e) { e.target.setStyle({ weight: 9 }); });
                     layer.on('mouseout', function(e) { e.target.setStyle({ weight: 6 }); });
                     allLayersList.push(layer);
@@ -398,22 +442,40 @@
 
         function updateMapDisplay() {
             streetsGroup.clearLayers(); panneauxGroup.clearLayers(); let doneCount = 0;
+            
             allLayersList.forEach(layer => {
                 const streetData = latestFirebaseData[layer.streetId];
-                const status = (streetData && streetData.status) ? streetData.status : 'todo';
-                if ((status === 'done' || status === 'boitee') && !layer.isPanneau) doneCount++;
-                if (layer.isPanneau) { layer.setStyle({ fillColor: status === 'done' ? COLOR_DONE : COLOR_TODO, color: "white" }); } 
-                else {
-                    let color = COLOR_TODO; let opacity = OPACITY_TODO;
-                    if (status === 'done') { color = COLOR_DONE; opacity = OPACITY_DONE; } else if (status === 'doing') { color = COLOR_DOING; opacity = OPACITY_DONE; } else if (status === 'boitee') { color = COLOR_BOITEE; opacity = OPACITY_DONE; }
-                    layer.setStyle({ color: color, opacity: opacity });
+                
+                if (layer.isPanneau) { 
+                    const statusPanneau = (streetData && streetData.status) ? streetData.status : 'todo';
+                    layer.setStyle({ fillColor: statusPanneau === 'done' ? COLOR_DONE : COLOR_TODO, color: "white" });
+                    let matchesStatus = (currentFilter === 'all' || currentFilter === statusPanneau);
+                    if (matchesStatus) panneauxGroup.addLayer(layer);
+                    return; // Fin du bloc pour les panneaux
                 }
+
+                // Logique pour les rues basée sur le mode actif
+                const dbKey = currentMode === 'pap' ? 'status' : 'status_boitage';
+                const status = (streetData && streetData[dbKey]) ? streetData[dbKey] : 'todo';
+                
+                if (status === 'done') doneCount++;
+                
+                let color = COLOR_TODO; let opacity = OPACITY_TODO;
+                if (status === 'done') { color = COLOR_DONE; opacity = OPACITY_DONE; } 
+                else if (status === 'doing') { color = COLOR_DOING; opacity = OPACITY_DONE; }
+                
+                layer.setStyle({ color: color, opacity: opacity });
+                
                 let matchesStatus = false;
-                if (currentFilter === 'all') matchesStatus = true; else if (currentFilter === status) matchesStatus = true;
-                if (matchesStatus) { if (layer.isPanneau) panneauxGroup.addLayer(layer); else streetsGroup.addLayer(layer); }
+                if (currentFilter === 'all') matchesStatus = true; 
+                else if (currentFilter === status) matchesStatus = true;
+                
+                if (matchesStatus) { streetsGroup.addLayer(layer); }
             });
+            
             const percent = totalStreetsCount > 0 ? Math.round((doneCount / totalStreetsCount) * 100) : 0;
-            document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} rues faites`;
+            const wording = currentMode === 'pap' ? 'faites' : 'boîtées';
+            document.getElementById('stats-text').innerText = `${doneCount} / ${totalStreetsCount} rues ${wording}`;
             document.getElementById('stats-percent').innerText = `${percent}%`;
             document.getElementById('progress-bar').style.width = `${percent}%`;
         }
